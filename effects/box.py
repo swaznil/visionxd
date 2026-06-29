@@ -3,79 +3,225 @@ import math
 
 NEON = (255, 255, 0)
 
-
-def glow_line(frame, p1, p2, color, thickness=2):
-    cv2.line(frame, p1, p2, color, thickness + 8)
-    cv2.line(frame, p1, p2, color, thickness + 4)
-    cv2.line(frame, p1, p2, color, thickness)
+smooth_nodes = None
+SMOOTH = 0.35
 
 
-def glow_circle(frame, pos, radius, color):
-    cv2.circle(frame, pos, radius + 10, color, 2)
-    cv2.circle(frame, pos, radius + 5, color, 2)
-    cv2.circle(frame, pos, radius, color, -1)
+def lerp(a, b, t):
+    return (
+        int(a[0] + (b[0] - a[0]) * t),
+        int(a[1] + (b[1] - a[1]) * t)
+    )
 
 
-def corner(frame, x, y, size=20):
+def glow_line(frame, p1, p2, thickness=2):
 
-    glow_line(frame, (x, y), (x + size, y), NEON)
-    glow_line(frame, (x, y), (x, y + size), NEON)
+    cv2.line(
+        frame,
+        p1,
+        p2,
+        NEON,
+        thickness + 10,
+        cv2.LINE_AA
+    )
+
+    cv2.line(
+        frame,
+        p1,
+        p2,
+        NEON,
+        thickness + 4,
+        cv2.LINE_AA
+    )
+
+    cv2.line(
+        frame,
+        p1,
+        p2,
+        (255, 255, 255),
+        thickness,
+        cv2.LINE_AA
+    )
+
+
+def glow_dot(frame, pos, radius=5):
+
+    cv2.circle(
+        frame,
+        pos,
+        radius + 8,
+        NEON,
+        2,
+        cv2.LINE_AA
+    )
+
+    cv2.circle(
+        frame,
+        pos,
+        radius + 3,
+        NEON,
+        2,
+        cv2.LINE_AA
+    )
+
+    cv2.circle(
+        frame,
+        pos,
+        radius,
+        (255, 255, 255),
+        -1,
+        cv2.LINE_AA
+    )
+
+
+def smooth(points):
+
+    global smooth_nodes
+
+    if smooth_nodes is None:
+        smooth_nodes = points
+        return points
+
+    out = []
+
+    for old, new in zip(smooth_nodes, points):
+        out.append(lerp(old, new, SMOOTH))
+
+    smooth_nodes = out
+
+    return out
+
+
+def hud(frame, active):
+
+    h, w, _ = frame.shape
+
+    text = (
+        "Show 2 finger of each hand to create shape"
+        if not active else
+        "LIVE SHAPE TRACKING"
+    )
+
+    width = 400
+    height = 34
+
+    x = 18
+    y = h - 55
+
+    cv2.rectangle(
+        frame,
+        (x, y),
+        (x + width, y + height),
+        (0, 0, 0),
+        -1
+    )
+
+    cv2.rectangle(
+        frame,
+        (x, y),
+        (x + width, y + height),
+        NEON,
+        1
+    )
+
+    cv2.putText(
+        frame,
+        text,
+        (x + 12, y + 22),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.52,
+        NEON,
+        1,
+        cv2.LINE_AA
+    )
 
 
 def run(frame, results):
 
+    global smooth_nodes
+
     h, w, _ = frame.shape
 
-    if results.multi_hand_landmarks and len(results.multi_hand_landmarks) >= 2:
+    if not results.multi_hand_landmarks:
+        smooth_nodes = None
+        hud(frame, False)
+        return frame
 
-        hand1 = results.multi_hand_landmarks[0]
-        hand2 = results.multi_hand_landmarks[1]
+    hands = results.multi_hand_landmarks
 
-        i1 = hand1.landmark[8]
-        i2 = hand2.landmark[8]
+    if len(hands) < 2:
+        smooth_nodes = None
+        hud(frame, False)
+        return frame
 
-        t1 = hand1.landmark[4]
-        t2 = hand2.landmark[4]
+    hand1 = hands[0]
+    hand2 = hands[1]
 
-        points = [
-            (int(i1.x * w), int(i1.y * h)),
-            (int(t1.x * w), int(t1.y * h)),
-            (int(i2.x * w), int(i2.y * h)),
-            (int(t2.x * w), int(t2.y * h)),
-        ]
+    pts = []
 
-        xs = [p[0] for p in points]
-        ys = [p[1] for p in points]
+    ids = [
+        (hand1, 8),
+        (hand1, 4),
+        (hand2, 8),
+        (hand2, 4)
+    ]
 
-        x1 = min(xs)
-        y1 = min(ys)
+    for hand, idx in ids:
 
-        x2 = max(xs)
-        y2 = max(ys)
+        lm = hand.landmark[idx]
 
-        glow_line(frame, (x1, y1), (x2, y1), NEON)
-        glow_line(frame, (x2, y1), (x2, y2), NEON)
-        glow_line(frame, (x2, y2), (x1, y2), NEON)
-        glow_line(frame, (x1, y2), (x1, y1), NEON)
+        x = int(lm.x * w)
+        y = int(lm.y * h)
 
-        corner(frame, x1, y1)
-        corner(frame, x2 - 20, y1)
-        corner(frame, x1, y2 - 20)
-        corner(frame, x2 - 20, y2 - 20)
+        pts.append((x, y))
 
-        cx = (x1 + x2) // 2
-        cy = (y1 + y2) // 2
+    pts = smooth(pts)
 
-        glow_circle(frame, (cx, cy), 10, NEON)
+    center_x = sum(p[0] for p in pts) // 4
+    center_y = sum(p[1] for p in pts) // 4
 
-        cv2.putText(
-            frame,
-            "HeHe",
-            (x1, y1 - 15),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            NEON,
-            2
+    ordered = sorted(
+        pts,
+        key=lambda p: math.atan2(
+            p[1] - center_y,
+            p[0] - center_x
         )
+    )
+
+    for i in range(len(ordered)):
+
+        p1 = ordered[i]
+        p2 = ordered[(i + 1) % len(ordered)]
+
+        glow_line(frame, p1, p2, 2)
+
+    for p in ordered:
+        glow_dot(frame, p, 5)
+
+    glow_dot(frame, (center_x, center_y), 4)
+
+    for p in ordered:
+
+        dx = p[0] - center_x
+        dy = p[1] - center_y
+
+        length = math.hypot(dx, dy)
+
+        if length < 1:
+            continue
+
+        ex = int(center_x + dx * 1.18)
+        ey = int(center_y + dy * 1.18)
+
+        cv2.line(
+            frame,
+            p,
+            (ex, ey),
+            NEON,
+            1,
+            cv2.LINE_AA
+        )
+
+    hud(frame, True)
 
     return frame

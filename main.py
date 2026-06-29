@@ -17,7 +17,6 @@ current_effect = "draw"
 
 effects = {
     "draw": importlib.import_module("effects.draw"),
-    "line": importlib.import_module("effects.line"),
     "box": importlib.import_module("effects.box"),
 }
 
