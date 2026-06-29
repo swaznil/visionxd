@@ -4,30 +4,34 @@ import time
 
 NEON = (255, 255, 0)
 
+MAX_POINTS = 12000
+
+GESTURE_DEBOUNCE = 0.08
+HAND_TIMEOUT = 0.25
+
+PINCH_HOLD = 0.12
+FIST_HOLD = 0.7
+
+ERASE_RADIUS_FRAC = 0.05
+PINCH_FRAC = 0.06
+
+SMOOTH_ALPHA = 0.4
+MAX_CONNECT_DIST_FRAC = 0.035
+
 points = []
-MAX_POINTS = 10000
 
 smoothed = None
 last_point = None
 last_seen = None
 
-fist_start = None
-pinch_start = None
-
 stable_gesture = "NONE"
 pending_gesture = None
 pending_since = None
 
-GESTURE_DEBOUNCE = 0.08
-HAND_TIMEOUT = 0.3
+fist_start = None
+pinch_start = None
 
-PINCH_HOLD = 0.12
-FIST_HOLD = 0.55
-
-ERASE_RADIUS_FRAC = 0.05
-PINCH_FRAC = 0.06
-
-SMOOTH_ALPHA = 0.38
+hand_present_last = False
 
 
 def dist(a, b):
@@ -35,8 +39,10 @@ def dist(a, b):
 
 
 def lerp(a, b, t):
-    return (int(a[0] + (b[0] - a[0]) * t),
-            int(a[1] + (b[1] - a[1]) * t))
+    return (
+        int(a[0] + (b[0] - a[0]) * t),
+        int(a[1] + (b[1] - a[1]) * t)
+    )
 
 
 def gesture(hand):
@@ -57,34 +63,71 @@ def gesture(hand):
     return "IDLE"
 
 
+def draw_progress(frame, x, y, w, h, progress):
+    cv2.rectangle(frame, (x, y), (x + w, y + h), (60, 60, 60), 2)
+
+    fill = int(w * max(0, min(1, progress)))
+
+    if fill > 0:
+        cv2.rectangle(frame, (x, y), (x + fill, y + h), NEON, -1)
+
+
 def run(frame, results):
-    global points, smoothed, last_point, last_seen
-    global fist_start, pinch_start
-    global stable_gesture, pending_gesture, pending_since
+    global points
+    global smoothed
+    global last_point
+    global last_seen
+
+    global stable_gesture
+    global pending_gesture
+    global pending_since
+
+    global fist_start
+    global pinch_start
+
+    global hand_present_last
 
     h, w, _ = frame.shape
+
     now = time.time()
+
     diag = math.hypot(w, h)
+
     erase_radius = diag * ERASE_RADIUS_FRAC
     pinch_thresh = diag * PINCH_FRAC
+    max_connect_dist = diag * MAX_CONNECT_DIST_FRAC
 
     if results.multi_hand_landmarks:
         hand = results.multi_hand_landmarks[0]
         lm = hand.landmark
 
-        ix, iy = int(lm[8].x * w), int(lm[8].y * h)
-        tx, ty = int(lm[4].x * w), int(lm[4].y * h)
+        ix = int(lm[8].x * w)
+        iy = int(lm[8].y * h)
+
+        tx = int(lm[4].x * w)
+        ty = int(lm[4].y * h)
+
         raw = (ix, iy)
 
-        if smoothed is None or now - (last_seen or 0) > HAND_TIMEOUT:
+        reappeared = (
+            not hand_present_last or
+            last_seen is None or
+            now - last_seen > HAND_TIMEOUT
+        )
+
+        if smoothed is None or reappeared:
             smoothed = raw
+            last_point = None
         else:
             smoothed = lerp(smoothed, raw, SMOOTH_ALPHA)
 
         current = smoothed
+
         last_seen = now
+        hand_present_last = True
 
         g_raw = gesture(hand)
+
         if g_raw == stable_gesture:
             pending_gesture = None
         else:
@@ -94,17 +137,17 @@ def run(frame, results):
             elif now - pending_since >= GESTURE_DEBOUNCE:
                 stable_gesture = g_raw
                 pending_gesture = None
+                last_point = None
+
         g = stable_gesture
 
-        # pinch is checked independent of gesture state so an open hand
-        # pinching (thumb+index together, other fingers relaxed) still
-        # triggers erase, not just a strict "DRAW" pose
         pinch = dist((ix, iy), (tx, ty))
-        is_pinching = pinch < pinch_thresh
+
+        is_pinching = g != "CLEAR" and pinch < pinch_thresh
 
         if is_pinching:
             pinch_start = pinch_start or now
-            erasing = now - pinch_start > PINCH_HOLD
+            erasing = now - pinch_start >= PINCH_HOLD
         else:
             pinch_start = None
             erasing = False
@@ -112,25 +155,73 @@ def run(frame, results):
         if erasing:
             last_point = None
             fist_start = None
-            points = [p for p in points if dist(p, current) >= erase_radius]
+
+            filtered = []
+
+            for p in points:
+                if p is None:
+                    filtered.append(None)
+                    continue
+
+                if dist(p, current) >= erase_radius:
+                    filtered.append(p)
+
+            points = filtered
+
             cv2.circle(frame, current, int(erase_radius), NEON, 2)
 
         elif g == "DRAW":
             fist_start = None
+
             if last_point is None:
                 last_point = current
-            d = dist(last_point, current)
-            if d > 1:
-                steps = max(1, int(d / 2))
-                for i in range(steps):
-                    points.append(lerp(last_point, current, i / steps))
+                points.append(None)
                 points.append(current)
-                last_point = current
+
+            else:
+                jump = dist(last_point, current)
+
+                if jump > max_connect_dist:
+                    points.append(None)
+                    points.append(current)
+                    last_point = current
+
+                elif jump > 1:
+                    steps = max(1, int(jump / 2))
+
+                    for i in range(1, steps + 1):
+                        p = lerp(last_point, current, i / steps)
+                        points.append(p)
+
+                    last_point = current
 
         elif g == "CLEAR":
             last_point = None
+
             fist_start = fist_start or now
-            if now - fist_start > FIST_HOLD:
+
+            hold = now - fist_start
+            progress = hold / FIST_HOLD
+
+            bw = 180
+            bh = 18
+
+            bx = (w - bw) // 2
+            by = 10
+
+            draw_progress(frame, bx, by, bw, bh, progress)
+
+            cv2.putText(
+                frame,
+                "CLEARING",
+                (bx + 28, by - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                NEON,
+                2
+            )
+
+            if hold >= FIST_HOLD:
                 points.clear()
                 fist_start = None
 
@@ -144,20 +235,48 @@ def run(frame, results):
             points = points[-MAX_POINTS:]
 
     else:
+        smoothed = None
         last_point = None
         fist_start = None
         pinch_start = None
+        hand_present_last = False
 
-    for i in range(1, len(points)):
-        p1, p2 = points[i - 1], points[i]
-        speed = dist(p1, p2)
-        thickness = max(2, min(8, int(speed / 4)))
-        cv2.line(frame, p1, p2, NEON, thickness)
+    prev = None
 
-    cv2.rectangle(frame, (10, h - 50), (260, h - 10), (0, 0, 0), -1)
-    cv2.putText(frame, f"MODE: {stable_gesture}",
-                (20, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, NEON, 2)
-    cv2.putText(frame, "INDEX draw | FIST clear | PINCH erase",
-                (20, h - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.4, NEON, 1)
+    for p in points:
+        if p is None:
+            prev = None
+            continue
+
+        if prev is not None:
+            speed = dist(prev, p)
+
+            thickness = max(2, min(6, int(7 - speed / 6)))
+
+            cv2.line(frame, prev, p, NEON, thickness)
+
+        prev = p
+
+    cv2.rectangle(frame, (10, h - 52), (300, h - 10), (0, 0, 0), -1)
+
+    cv2.putText(
+        frame,
+        f"MODE: {stable_gesture}",
+        (20, h - 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        NEON,
+        2
+    )
+
+    cv2.putText(
+        frame,
+        "INDEX draw | FIST clear | PINCH erase",
+        (20, h - 12),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.42,
+        NEON,
+        1
+    )
 
     return frame
