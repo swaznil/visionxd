@@ -1,17 +1,189 @@
+import os
+import time
+import webbrowser
+
 from PySide6.QtCore import Qt
-
 from PySide6.QtGui import QPixmap
-
-from PySide6.QtWidgets import QWidget
-from PySide6.QtWidgets import QLabel
-from PySide6.QtWidgets import QPushButton
-from PySide6.QtWidgets import QHBoxLayout
-from PySide6.QtWidgets import QVBoxLayout
-from PySide6.QtWidgets import QFrame
-from PySide6.QtWidgets import QMainWindow
-from PySide6.QtWidgets import QSizePolicy
+from PySide6.QtWidgets import *
 
 from camera import CameraThread
+
+
+LIGHT_STYLE = """
+
+QMainWindow{
+background:#edf1f1;
+}
+
+QFrame{
+background:#ffffff;
+border:1px solid #d7dede;
+}
+
+QLabel{
+font-family:Segoe UI;
+color:#223030;
+}
+
+QLabel#title{
+font-size:27px;
+font-weight:700;
+color:#162222;
+}
+
+QLabel#sub{
+font-size:12px;
+color:#708585;
+}
+
+QLabel#fps{
+background:#f4f7f7;
+border:1px solid #d7dede;
+padding:6px 12px;
+font-size:12px;
+font-weight:600;
+color:#425a5a;
+}
+
+QLabel#video{
+background:black;
+border:1px solid #cfd7d7;
+}
+
+QPushButton{
+background:#f7f9f9;
+border:1px solid #d7dede;
+padding:10px 14px;
+font-size:13px;
+font-family:Segoe UI;
+color:#223030;
+min-height:20px;
+}
+
+QPushButton:hover{
+background:#eef5f5;
+}
+
+QPushButton:checked{
+background:#dff8f4;
+border:1px solid #7fd7ca;
+}
+
+QPushButton#effect{
+text-align:left;
+font-size:14px;
+font-weight:500;
+padding-left:14px;
+}
+
+QPushButton#effect:checked{
+font-weight:700;
+color:#1f5050;
+}
+
+QLineEdit{
+background:white;
+border:1px solid #d7dede;
+padding:10px;
+color:#223030;
+}
+
+QCheckBox{
+font-size:13px;
+spacing:10px;
+padding:4px;
+color:#223030;
+}
+
+"""
+
+DARK_STYLE = """
+
+QMainWindow{
+background:#101414;
+}
+
+QFrame{
+background:#171d1d;
+border:1px solid #2a3333;
+}
+
+QLabel{
+font-family:Segoe UI;
+color:#dbe7e7;
+}
+
+QLabel#title{
+font-size:27px;
+font-weight:700;
+color:#f1ffff;
+}
+
+QLabel#sub{
+font-size:12px;
+color:#88a0a0;
+}
+
+QLabel#fps{
+background:#1d2525;
+border:1px solid #344141;
+padding:6px 12px;
+font-size:12px;
+font-weight:600;
+color:#b9e7df;
+}
+
+QLabel#video{
+background:black;
+border:1px solid #2d3838;
+}
+
+QPushButton{
+background:#202828;
+border:1px solid #364242;
+padding:10px 14px;
+font-size:13px;
+font-family:Segoe UI;
+color:#dbe7e7;
+min-height:20px;
+}
+
+QPushButton:hover{
+background:#263131;
+}
+
+QPushButton:checked{
+background:#163d39;
+border:1px solid #59d5c3;
+}
+
+QPushButton#effect{
+text-align:left;
+font-size:14px;
+font-weight:500;
+padding-left:14px;
+}
+
+QPushButton#effect:checked{
+font-weight:700;
+color:#a9f0e3;
+}
+
+QLineEdit{
+background:#202828;
+border:1px solid #364242;
+padding:10px;
+color:#dbe7e7;
+}
+
+QCheckBox{
+font-size:13px;
+spacing:10px;
+padding:4px;
+color:#dbe7e7;
+}
+
+"""
 
 
 class EffectButton(QPushButton):
@@ -20,15 +192,15 @@ class EffectButton(QPushButton):
 
         super().__init__(text)
 
+        self.setObjectName("effect")
+
         self.setCursor(
             Qt.PointingHandCursor
         )
 
         self.setCheckable(True)
 
-        self.setMinimumHeight(46)
-
-        self.setObjectName("effect")
+        self.setMinimumHeight(42)
 
 
 class VisionWindow(QMainWindow):
@@ -41,11 +213,14 @@ class VisionWindow(QMainWindow):
             "VisionXD"
         )
 
-        self.resize(1320, 840)
+        self.resize(
+            1320,
+            820
+        )
 
         self.setMinimumSize(
-            1020,
-            700
+            1100,
+            720
         )
 
         self.camera = CameraThread()
@@ -58,6 +233,10 @@ class VisionWindow(QMainWindow):
             self.updateFPS
         )
 
+        self.recordStart = None
+
+        self.currentPixmap = None
+
         root = QWidget()
 
         self.setCentralWidget(root)
@@ -65,30 +244,30 @@ class VisionWindow(QMainWindow):
         layout = QVBoxLayout(root)
 
         layout.setContentsMargins(
-            18,
-            18,
-            18,
-            18
+            12,
+            12,
+            12,
+            12
         )
 
-        layout.setSpacing(14)
+        layout.setSpacing(10)
 
         top = QFrame()
 
-        top.setObjectName("top")
+        top.setFixedHeight(72)
 
         topLayout = QHBoxLayout(top)
 
         topLayout.setContentsMargins(
-            16,
             14,
-            16,
-            14
+            10,
+            14,
+            10
         )
 
         titleWrap = QVBoxLayout()
 
-        titleWrap.setSpacing(1)
+        titleWrap.setSpacing(0)
 
         title = QLabel(
             "VisionXD"
@@ -97,7 +276,7 @@ class VisionWindow(QMainWindow):
         title.setObjectName("title")
 
         sub = QLabel(
-            "camera experiments"
+            "realtime camera toolkit"
         )
 
         sub.setObjectName("sub")
@@ -106,58 +285,105 @@ class VisionWindow(QMainWindow):
 
         titleWrap.addWidget(sub)
 
-        self.fps = QLabel("0 fps")
-
-        self.fps.setObjectName("fps")
-
         topLayout.addLayout(titleWrap)
 
         topLayout.addStretch()
 
-        topLayout.addWidget(self.fps)
+        self.recLabel = QLabel("")
+
+        self.recLabel.hide()
+
+        self.recLabel.setStyleSheet("""
+
+color:#ff5f57;
+font-weight:700;
+font-size:13px;
+
+""")
+
+        topLayout.addWidget(
+            self.recLabel
+        )
+
+        self.shotBtn = QPushButton(
+            "Screenshot"
+        )
+
+        self.shotBtn.clicked.connect(
+            self.takeScreenshot
+        )
+
+        topLayout.addWidget(
+            self.shotBtn
+        )
+
+        self.recordBtn = QPushButton(
+            "Record"
+        )
+
+        self.recordBtn.setCheckable(True)
+
+        self.recordBtn.clicked.connect(
+            self.toggleRecording
+        )
+
+        topLayout.addWidget(
+            self.recordBtn
+        )
+
+        self.pageBtn = QPushButton(
+            "Settings"
+        )
+
+        self.pageBtn.clicked.connect(
+            self.togglePage
+        )
+
+        topLayout.addWidget(
+            self.pageBtn
+        )
+
+        self.fps = QLabel(
+            "0 fps"
+        )
+
+        self.fps.setObjectName(
+            "fps"
+        )
+
+        topLayout.addWidget(
+            self.fps
+        )
 
         layout.addWidget(top)
 
         body = QHBoxLayout()
 
-        body.setSpacing(14)
+        body.setSpacing(10)
 
         side = QFrame()
 
-        side.setObjectName("side")
-
-        side.setFixedWidth(200)
+        side.setFixedWidth(190)
 
         sideLayout = QVBoxLayout(side)
 
         sideLayout.setContentsMargins(
-            12,
-            12,
-            12,
-            12
+            10,
+            10,
+            10,
+            10
         )
 
-        sideLayout.setSpacing(10)
-
-        sideTitle = QLabel(
-            "effects"
-        )
-
-        sideTitle.setObjectName("sideTitle")
-
-        sideLayout.addWidget(sideTitle)
+        sideLayout.setSpacing(8)
 
         self.buttons = {}
 
         for effect in [
 
             "Draw",
-
             "Box",
-
             "Cuboid",
-
-            "Fluid",
+            "Fluid"
 
         ]:
 
@@ -176,52 +402,192 @@ class VisionWindow(QMainWindow):
 
             self.buttons[effect] = btn
 
-        self.buttons["Draw"].setChecked(True)
+        self.buttons["Draw"].setChecked(
+            True
+        )
 
         sideLayout.addStretch()
 
-        self.status = QLabel(
-            "camera active"
-        )
-
-        self.status.setObjectName("status")
-
-        sideLayout.addWidget(self.status)
-
         body.addWidget(side)
 
-        videoWrap = QFrame()
+        self.pages = QStackedWidget()
 
-        videoWrap.setObjectName("videoWrap")
+        self.cameraPage = QWidget()
 
-        videoLayout = QVBoxLayout(videoWrap)
+        camLayout = QVBoxLayout(
+            self.cameraPage
+        )
 
-        videoLayout.setContentsMargins(
-            10,
-            10,
-            10,
-            10
+        camLayout.setContentsMargins(
+            0,
+            0,
+            0,
+            0
         )
 
         self.video = QLabel()
+
+        self.video.setObjectName(
+            "video"
+        )
 
         self.video.setAlignment(
             Qt.AlignCenter
         )
 
-        self.video.setObjectName("video")
-
-        self.video.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding
+        self.video.setMinimumSize(
+            640,
+            480
         )
 
-        videoLayout.addWidget(
+        camLayout.addWidget(
             self.video
         )
 
+        self.pages.addWidget(
+            self.cameraPage
+        )
+
+        self.settingsPage = QWidget()
+
+        settingsLayout = QVBoxLayout(
+            self.settingsPage
+        )
+
+        settingsLayout.setContentsMargins(
+            24,
+            24,
+            24,
+            24
+        )
+
+        settingsLayout.setSpacing(18)
+
+        settingsTitle = QLabel(
+            "Settings"
+        )
+
+        settingsTitle.setStyleSheet("""
+
+font-size:26px;
+font-weight:700;
+
+""")
+
+        settingsLayout.addWidget(
+            settingsTitle
+        )
+
+        self.darkMode = QCheckBox(
+            "Dark mode"
+        )
+
+        self.darkMode.stateChanged.connect(
+            self.applyTheme
+        )
+
+        settingsLayout.addWidget(
+            self.darkMode
+        )
+
+        self.showFPS = QCheckBox(
+            "Show FPS counter"
+        )
+
+        self.showFPS.setChecked(True)
+
+        self.showFPS.stateChanged.connect(
+            self.toggleFPS
+        )
+
+        settingsLayout.addWidget(
+            self.showFPS
+        )
+
+        folderLabel = QLabel(
+            "Save folder"
+        )
+
+        settingsLayout.addWidget(
+            folderLabel
+        )
+
+        folderRow = QHBoxLayout()
+
+        self.pathBox = QLineEdit(
+            os.path.abspath(
+                "captures"
+            )
+        )
+
+        browse = QPushButton(
+            "Browse"
+        )
+
+        browse.clicked.connect(
+            self.selectFolder
+        )
+
+        folderRow.addWidget(
+            self.pathBox
+        )
+
+        folderRow.addWidget(
+            browse
+        )
+
+        settingsLayout.addLayout(
+            folderRow
+        )
+
+        repo = QPushButton(
+            "Open Github Repo"
+        )
+
+        repo.clicked.connect(
+
+            lambda:
+
+            webbrowser.open(
+                "https://github.com/"
+            )
+
+        )
+
+        settingsLayout.addWidget(
+            repo
+        )
+
+        about = QLabel(
+
+            "VisionXD is a realtime "
+            "computer vision toolkit "
+            "built using OpenCV, "
+            "MediaPipe and PySide6."
+
+        )
+
+        about.setWordWrap(True)
+
+        about.setStyleSheet("""
+
+line-height:20px;
+color:#7a8f8f;
+
+""")
+
+        settingsLayout.addWidget(
+            about
+        )
+
+        settingsLayout.addStretch()
+
+        self.pages.addWidget(
+            self.settingsPage
+        )
+
         body.addWidget(
-            videoWrap,
+            self.pages,
             1
         )
 
@@ -230,157 +596,96 @@ class VisionWindow(QMainWindow):
             1
         )
 
-        self.setStyleSheet("""
-
-QMainWindow{
-
-background:#d7dfdf;
-
-}
-
-QFrame#top{
-
-background:#eef4f4;
-
-border:1px solid #adc0c0;
-
-}
-
-QFrame#side{
-
-background:#eef4f4;
-
-border:1px solid #adc0c0;
-
-}
-
-QFrame#videoWrap{
-
-background:#eef4f4;
-
-border:1px solid #adc0c0;
-
-}
-
-QLabel#title{
-
-font-size:29px;
-
-font-weight:600;
-
-color:#294040;
-
-font-family:Tahoma;
-
-}
-
-QLabel#sub{
-
-font-size:12px;
-
-color:#6a8181;
-
-font-family:Verdana;
-
-}
-
-QLabel#fps{
-
-background:#def7f3;
-
-border:1px solid #8fd1c8;
-
-padding:7px 15px;
-
-font-size:13px;
-
-font-weight:600;
-
-color:#2b5b59;
-
-font-family:Tahoma;
-
-}
-
-QLabel#sideTitle{
-
-font-size:13px;
-
-font-weight:bold;
-
-color:#547070;
-
-padding-bottom:4px;
-
-font-family:Verdana;
-
-}
-
-QLabel#status{
-
-font-size:12px;
-
-color:#537575;
-
-padding:10px;
-
-background:#e5f5f4;
-
-border:1px solid #b5d8d4;
-
-font-family:Verdana;
-
-}
-
-QPushButton#effect{
-
-background:#dde7e7;
-
-border:1px solid #b2c6c6;
-
-padding:12px;
-
-text-align:left;
-
-font-size:14px;
-
-color:#314848;
-
-font-family:Tahoma;
-
-}
-
-QPushButton#effect:hover{
-
-background:#e8f5f3;
-
-border:1px solid #79d2c4;
-
-}
-
-QPushButton#effect:checked{
-
-background:#d6fbf5;
-
-border:1px solid #61d9ca;
-
-color:#204f4f;
-
-font-weight:600;
-
-}
-
-QLabel#video{
-
-background:black;
-
-border:2px solid #9fb7b7;
-
-}
-
-""")
+        self.setStyleSheet(
+            DARK_STYLE
+        )
+
+        self.darkMode.setChecked(True)
 
         self.camera.start()
+
+    def togglePage(self):
+
+        if self.pages.currentIndex() == 0:
+
+            self.pages.setCurrentIndex(1)
+
+            self.pageBtn.setText(
+                "Camera"
+            )
+
+        else:
+
+            self.pages.setCurrentIndex(0)
+
+            self.pageBtn.setText(
+                "Settings"
+            )
+
+    def applyTheme(self):
+
+        if self.darkMode.isChecked():
+
+            self.setStyleSheet(
+                DARK_STYLE
+            )
+
+        else:
+
+            self.setStyleSheet(
+                LIGHT_STYLE
+            )
+
+    def toggleFPS(self):
+
+        self.fps.setVisible(
+            self.showFPS.isChecked()
+        )
+
+    def selectFolder(self):
+
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Select Folder"
+        )
+
+        if folder:
+
+            self.pathBox.setText(
+                folder
+            )
+
+            self.camera.setOutputFolder(
+                folder
+            )
+
+    def toggleRecording(self):
+
+        if self.recordBtn.isChecked():
+
+            self.camera.startRecording()
+
+            self.recordBtn.setText(
+                "Stop"
+            )
+
+            self.recordStart = time.time()
+
+            self.recLabel.show()
+
+        else:
+
+            self.camera.stopRecording()
+
+            self.recordBtn.setText(
+                "Record"
+            )
+
+            self.recLabel.hide()
+
+    def takeScreenshot(self):
+
+        self.camera.saveScreenshot()
 
     def changeEffect(self, name):
 
@@ -388,13 +693,11 @@ border:2px solid #9fb7b7;
 
             b.setChecked(False)
 
-        self.buttons[name].setChecked(True)
+        self.buttons[name].setChecked(
+            True
+        )
 
         self.camera.setEffect(name)
-
-        self.status.setText(
-            f"{name.lower()} mode active"
-        )
 
     def updateFPS(self, fps):
 
@@ -402,11 +705,32 @@ border:2px solid #9fb7b7;
             f"{fps} fps"
         )
 
+        if self.camera.recording:
+
+            elapsed = int(
+                time.time()
+                - self.recordStart
+            )
+
+            mins = elapsed // 60
+
+            secs = elapsed % 60
+
+            self.recLabel.setText(
+
+                f"● REC  {mins:02}:{secs:02}"
+
+            )
+
     def updateFrame(self, image):
 
-        pix = QPixmap.fromImage(image)
+        pix = QPixmap.fromImage(
+            image
+        )
 
-        pix = pix.scaled(
+        self.currentPixmap = pix
+
+        scaled = pix.scaled(
 
             self.video.size(),
 
@@ -416,7 +740,29 @@ border:2px solid #9fb7b7;
 
         )
 
-        self.video.setPixmap(pix)
+        self.video.setPixmap(
+            scaled
+        )
+
+    def resizeEvent(self, event):
+
+        super().resizeEvent(event)
+
+        if self.currentPixmap:
+
+            scaled = self.currentPixmap.scaled(
+
+                self.video.size(),
+
+                Qt.KeepAspectRatio,
+
+                Qt.SmoothTransformation
+
+            )
+
+            self.video.setPixmap(
+                scaled
+            )
 
     def closeEvent(self, event):
 
