@@ -1,9 +1,9 @@
-from . import draw
-from . import box
-from . import cuboid
+from . import draw, box, cuboid, fluid
+
 
 effects = {
     "Draw": draw,
     "Box": box,
     "Cuboid": cuboid,
+    "Fluid": fluid,
 }
