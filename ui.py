@@ -110,6 +110,8 @@ class VisionWindow(QMainWindow):
 
             "Box",
 
+            "Cuboid",
+
         ]:
 
             btn = EffectButton(effect)
