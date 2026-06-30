@@ -80,6 +80,26 @@ python main.py
 
 ---
 
+## Windows Release
+
+Download the latest `VisionXD-windows.zip` from the GitHub Releases page, unzip it, and run `VisionXD.exe`.
+
+### System Requirements
+
+- Windows 10 or Windows 11, 64-bit
+- A webcam supported by Windows
+- Camera access enabled in Windows privacy settings
+- No separate Python install is required for the release build
+
+### First Run Notes
+
+- Windows SmartScreen may warn because the executable is unsigned. Choose "More info" and then "Run anyway" if you trust the GitHub Release download.
+- If Windows blocks the downloaded zip or executable, right-click the zip file or `VisionXD.exe`, open Properties, check "Unblock", then apply the change.
+- Allow camera access if Windows asks. VisionXD starts the camera when the app opens.
+- Screenshots and recordings are saved in the `captures` folder by default.
+
+---
+
 ## How It Works
 
 OpenCV and MediaPipe is used for realtime hand tracking and camera input. Then desktop UI is built using PySide6.
