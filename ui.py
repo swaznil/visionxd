@@ -1,7 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtCore import QSize
 
-from PySide6.QtGui import QAction
 from PySide6.QtGui import QPixmap
 
 from PySide6.QtWidgets import QWidget
@@ -11,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout
 from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtWidgets import QFrame
 from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QSizePolicy
 
 from camera import CameraThread
 
@@ -21,11 +20,15 @@ class EffectButton(QPushButton):
 
         super().__init__(text)
 
-        self.setCursor(Qt.PointingHandCursor)
-
-        self.setMinimumHeight(52)
+        self.setCursor(
+            Qt.PointingHandCursor
+        )
 
         self.setCheckable(True)
+
+        self.setMinimumHeight(46)
+
+        self.setObjectName("effect")
 
 
 class VisionWindow(QMainWindow):
@@ -34,11 +37,16 @@ class VisionWindow(QMainWindow):
 
         super().__init__()
 
-        self.setWindowTitle("VisionXD")
+        self.setWindowTitle(
+            "VisionXD"
+        )
 
-        self.resize(1450, 900)
+        self.resize(1320, 840)
 
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(
+            1020,
+            700
+        )
 
         self.camera = CameraThread()
 
@@ -54,53 +62,90 @@ class VisionWindow(QMainWindow):
 
         self.setCentralWidget(root)
 
-        rootLayout = QVBoxLayout(root)
+        layout = QVBoxLayout(root)
 
-        rootLayout.setContentsMargins(16, 16, 16, 16)
-
-        rootLayout.setSpacing(12)
-
-        title = QHBoxLayout()
-
-        logo = QLabel("VisionXD")
-
-        logo.setObjectName("title")
-
-        self.fps = QLabel("0 FPS")
-
-        self.fps.setObjectName("fps")
-
-        title.addWidget(logo)
-
-        title.addStretch()
-
-        title.addWidget(self.fps)
-
-        rootLayout.addLayout(title)
-
-        self.video = QLabel()
-
-        self.video.setAlignment(Qt.AlignCenter)
-
-        self.video.setObjectName("video")
-
-        rootLayout.addWidget(
-            self.video,
-            1
-        )
-
-        dock = QFrame()
-
-        dock.setObjectName("dock")
-
-        dockLayout = QHBoxLayout(dock)
-
-        dockLayout.setContentsMargins(
+        layout.setContentsMargins(
             18,
             18,
             18,
             18
         )
+
+        layout.setSpacing(14)
+
+        top = QFrame()
+
+        top.setObjectName("top")
+
+        topLayout = QHBoxLayout(top)
+
+        topLayout.setContentsMargins(
+            16,
+            14,
+            16,
+            14
+        )
+
+        titleWrap = QVBoxLayout()
+
+        titleWrap.setSpacing(1)
+
+        title = QLabel(
+            "VisionXD"
+        )
+
+        title.setObjectName("title")
+
+        sub = QLabel(
+            "camera experiments"
+        )
+
+        sub.setObjectName("sub")
+
+        titleWrap.addWidget(title)
+
+        titleWrap.addWidget(sub)
+
+        self.fps = QLabel("0 fps")
+
+        self.fps.setObjectName("fps")
+
+        topLayout.addLayout(titleWrap)
+
+        topLayout.addStretch()
+
+        topLayout.addWidget(self.fps)
+
+        layout.addWidget(top)
+
+        body = QHBoxLayout()
+
+        body.setSpacing(14)
+
+        side = QFrame()
+
+        side.setObjectName("side")
+
+        side.setFixedWidth(200)
+
+        sideLayout = QVBoxLayout(side)
+
+        sideLayout.setContentsMargins(
+            12,
+            12,
+            12,
+            12
+        )
+
+        sideLayout.setSpacing(10)
+
+        sideTitle = QLabel(
+            "effects"
+        )
+
+        sideTitle.setObjectName("sideTitle")
+
+        sideLayout.addWidget(sideTitle)
 
         self.buttons = {}
 
@@ -127,89 +172,209 @@ class VisionWindow(QMainWindow):
 
             )
 
-            dockLayout.addWidget(btn)
+            sideLayout.addWidget(btn)
 
             self.buttons[effect] = btn
 
         self.buttons["Draw"].setChecked(True)
 
-        rootLayout.addWidget(dock)
+        sideLayout.addStretch()
+
+        self.status = QLabel(
+            "camera active"
+        )
+
+        self.status.setObjectName("status")
+
+        sideLayout.addWidget(self.status)
+
+        body.addWidget(side)
+
+        videoWrap = QFrame()
+
+        videoWrap.setObjectName("videoWrap")
+
+        videoLayout = QVBoxLayout(videoWrap)
+
+        videoLayout.setContentsMargins(
+            10,
+            10,
+            10,
+            10
+        )
+
+        self.video = QLabel()
+
+        self.video.setAlignment(
+            Qt.AlignCenter
+        )
+
+        self.video.setObjectName("video")
+
+        self.video.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding
+        )
+
+        videoLayout.addWidget(
+            self.video
+        )
+
+        body.addWidget(
+            videoWrap,
+            1
+        )
+
+        layout.addLayout(
+            body,
+            1
+        )
 
         self.setStyleSheet("""
 
 QMainWindow{
 
-background:#111;
+background:#d7dfdf;
+
+}
+
+QFrame#top{
+
+background:#eef4f4;
+
+border:1px solid #adc0c0;
+
+}
+
+QFrame#side{
+
+background:#eef4f4;
+
+border:1px solid #adc0c0;
+
+}
+
+QFrame#videoWrap{
+
+background:#eef4f4;
+
+border:1px solid #adc0c0;
 
 }
 
 QLabel#title{
 
-font-size:30px;
+font-size:29px;
 
-font-weight:700;
+font-weight:600;
 
-color:white;
+color:#294040;
+
+font-family:Tahoma;
+
+}
+
+QLabel#sub{
+
+font-size:12px;
+
+color:#6a8181;
+
+font-family:Verdana;
 
 }
 
 QLabel#fps{
 
-color:#00ffff;
+background:#def7f3;
 
-font-size:15px;
+border:1px solid #8fd1c8;
+
+padding:7px 15px;
+
+font-size:13px;
+
+font-weight:600;
+
+color:#2b5b59;
+
+font-family:Tahoma;
+
+}
+
+QLabel#sideTitle{
+
+font-size:13px;
+
+font-weight:bold;
+
+color:#547070;
+
+padding-bottom:4px;
+
+font-family:Verdana;
+
+}
+
+QLabel#status{
+
+font-size:12px;
+
+color:#537575;
+
+padding:10px;
+
+background:#e5f5f4;
+
+border:1px solid #b5d8d4;
+
+font-family:Verdana;
+
+}
+
+QPushButton#effect{
+
+background:#dde7e7;
+
+border:1px solid #b2c6c6;
+
+padding:12px;
+
+text-align:left;
+
+font-size:14px;
+
+color:#314848;
+
+font-family:Tahoma;
+
+}
+
+QPushButton#effect:hover{
+
+background:#e8f5f3;
+
+border:1px solid #79d2c4;
+
+}
+
+QPushButton#effect:checked{
+
+background:#d6fbf5;
+
+border:1px solid #61d9ca;
+
+color:#204f4f;
+
+font-weight:600;
 
 }
 
 QLabel#video{
 
-background:#1b1b1b;
+background:black;
 
-border-radius:22px;
-
-border:2px solid #2b2b2b;
-
-}
-
-QFrame#dock{
-
-background:#181818;
-
-border-radius:20px;
-
-border:1px solid #2f2f2f;
-
-}
-
-QPushButton{
-
-background:#202020;
-
-border:none;
-
-border-radius:14px;
-
-font-size:16px;
-
-color:white;
-
-padding:14px;
-
-}
-
-QPushButton:hover{
-
-background:#2b2b2b;
-
-}
-
-QPushButton:checked{
-
-background:#00d7ff;
-
-color:black;
-
-font-weight:bold;
+border:2px solid #9fb7b7;
 
 }
 
@@ -220,15 +385,22 @@ font-weight:bold;
     def changeEffect(self, name):
 
         for b in self.buttons.values():
+
             b.setChecked(False)
 
         self.buttons[name].setChecked(True)
 
         self.camera.setEffect(name)
 
+        self.status.setText(
+            f"{name.lower()} mode active"
+        )
+
     def updateFPS(self, fps):
 
-        self.fps.setText(f"{fps} FPS")
+        self.fps.setText(
+            f"{fps} fps"
+        )
 
     def updateFrame(self, image):
 
