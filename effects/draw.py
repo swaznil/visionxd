@@ -194,35 +194,116 @@ def run(frame, results):
                         points.append(p)
 
                     last_point = current
-
+                    
         elif g == "CLEAR":
+
             last_point = None
 
             fist_start = fist_start or now
 
             hold = now - fist_start
+
             progress = hold / FIST_HOLD
 
-            bw = 180
+            bw = 200
             bh = 18
 
             bx = (w - bw) // 2
-            by = 10
+            by = 26
 
-            draw_progress(frame, bx, by, bw, bh, progress)
+            bg = frame.copy()
+
+            cv2.rectangle(
+
+                bg,
+
+                (bx - 14, by - 34),
+
+                (bx + bw + 14, by + bh + 14),
+
+                (0, 0, 0),
+
+                -1
+
+            )
+
+            cv2.addWeighted(
+
+                bg,
+                0.45,
+
+                frame,
+                0.55,
+
+                0,
+
+                frame
+
+            )
+
+            cv2.rectangle(
+
+                frame,
+
+                (bx, by),
+
+                (bx + bw, by + bh),
+
+                (45, 45, 45),
+
+                1
+
+            )
+
+            fill = int(
+
+                bw * max(
+                    0,
+                    min(1, progress)
+                )
+
+            )
+
+            if fill > 0:
+
+                cv2.rectangle(
+
+                    frame,
+
+                    (bx, by),
+
+                    (bx + fill, by + bh),
+
+                    NEON,
+
+                    -1
+
+                )
 
             cv2.putText(
+
                 frame,
-                "CLEARING",
-                (bx + 28, by - 10),
+
+                "CLEARING CANVAS",
+
+                (bx + 18, by - 10),
+
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
+
+                0.52,
+
                 NEON,
-                2
+
+                1,
+
+                cv2.LINE_AA
+
             )
 
             if hold >= FIST_HOLD:
+
                 points.clear()
+
                 fist_start = None
 
         else:
